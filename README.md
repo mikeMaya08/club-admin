@@ -30,11 +30,13 @@ the elements: tables, forms, filters and dialogs have them; the calendar and the
 
 ### Deploying
 
+The committed dependency is the tagged git version (works on Vercel). For live development against a local `club-store`, temporarily use `"club-store": "file:../club-store"` and run `npm install`. Committed value:
+
 ```json
-"club-store": "github:<org>/club-store#v0.1.0"
+"club-store": "git+https://github.com/mikeMaya08/club-store.git#v0.1.0"
 ```
 
-Create a Netlify site from this repo (`netlify.toml`; output goes to `dist/admin`) and point `club-shell`'s `_redirects` at it.
+Deploy as its own **Vercel** project from this repo (config in `vercel.json`; the build writes to `dist/admin` so the files match the `/admin/` base path, and a rewrite gives deep links the SPA fallback). Name the project `club-admin` so `club-shell` can proxy `/admin/*` to `https://club-admin.vercel.app`. If the `club-store` repo is private, Vercel needs access to it (or switch to a public repo).
 
 ## Test hooks
 
