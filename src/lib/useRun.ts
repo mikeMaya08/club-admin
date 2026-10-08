@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RuleError, errorMessage, logout, type RuleCode } from 'club-store'
 import { useToast } from '../components/Toast'
+import { trackPending } from './pending'
 
 export type RunResult<T> = { ok: true; value: T } | { ok: false; code?: RuleCode }
 
@@ -18,7 +19,7 @@ export function useRun() {
     async <T,>(fn: () => Promise<T>, success?: string): Promise<RunResult<T>> => {
       setBusy(true)
       try {
-        const value = await fn()
+        const value = await trackPending(fn())
         if (success) toast(success, 'success')
         return { ok: true, value }
       } catch (err) {

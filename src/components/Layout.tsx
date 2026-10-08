@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { logout } from 'club-store'
 import { useMe } from '../lib/useMe'
+import PendingBar from './PendingBar'
 import NotificationBell from './NotificationBell'
 
 const LINKS = [
@@ -18,6 +19,7 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
+      <PendingBar />
       <aside className="bg-slate-900 text-slate-100 md:w-52 md:shrink-0">
         <div className="flex items-center justify-between px-4 py-3 md:block">
           <h1 className="text-base font-semibold">
