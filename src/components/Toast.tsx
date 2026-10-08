@@ -11,7 +11,7 @@ const ToastContext = createContext<(message: string, kind?: Kind) => void>(() =>
 export const useToast = () => useContext(ToastContext)
 
 const STYLES: Record<Kind, string> = {
-  success: 'bg-green-600',
+  success: 'bg-green-700',
   error: 'bg-red-600',
   info: 'bg-slate-800',
 }

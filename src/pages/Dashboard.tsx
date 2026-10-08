@@ -8,7 +8,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
     <div className="rounded-lg border bg-white p-4">
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value}</p>
-      {hint && <p className="text-xs text-slate-400">{hint}</p>}
+      {hint && <p className="text-xs text-slate-500">{hint}</p>}
     </div>
   )
 }

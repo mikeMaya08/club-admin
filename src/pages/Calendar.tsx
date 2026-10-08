@@ -12,10 +12,52 @@ const WEEK = { weekStartsOn: 1 } as const
 interface Ghost { date: string; courtId: string; top: number; height: number }
 type Drag =
   | { kind: 'create'; date: string; courtId: string; rect: DOMRect; from: number; to: number }
-  | { kind: 'move'; block: Block; x0: number; y0: number; grab: number; len: number; moved: boolean; target?: { date: string; courtId: string; row: number } }
+  | { kind: 'move'; item: { type: 'res' | 'block'; id: string; start: string; end: string }; x0: number; y0: number; grab: number; len: number; moved: boolean; target?: { date: string; courtId: string; row: number } }
+  | { kind: 'resize'; block: Block; colTop: number; startRow: number; endRow: number }
 type Selection = { kind: 'res' | 'block' | 'lesson'; id: string }
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi)
+
+interface MoveFormProps {
+  reservation: { id: string; courtId: string; date: string; start: string }
+  courts: { id: string; name: string; active: boolean }[]
+  slots: { start: string }[]
+  onMove: (to: { courtId: string; date: string; start: string }) => void
+}
+
+/** Keyboard-friendly alternative to dragging a reservation. */
+function MoveForm({ reservation, courts, slots, onMove }: MoveFormProps) {
+  const [courtId, setCourtId] = useState(reservation.courtId)
+  const [date, setDate] = useState(reservation.date)
+  const [start, setStart] = useState(reservation.start)
+  const field = 'w-full rounded border px-2 py-1.5 text-sm'
+  return (
+    <fieldset className="mt-4 border-t pt-3">
+      <legend className="text-sm font-semibold">Move reservation</legend>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <label className="text-xs">
+          Court
+          <select data-testid="move-court" value={courtId} onChange={(e) => setCourtId(e.target.value)} className={field}>
+            {courts.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </label>
+        <label className="text-xs">
+          Date
+          <input data-testid="move-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} />
+        </label>
+        <label className="text-xs">
+          Start
+          <select data-testid="move-start" value={start} onChange={(e) => setStart(e.target.value)} className={field}>
+            {slots.map((s) => <option key={s.start} value={s.start}>{s.start}</option>)}
+          </select>
+        </label>
+      </div>
+      <button type="button" data-testid="move-confirm" className="mt-3 rounded bg-slate-900 px-3 py-2 text-sm text-white" onClick={() => onMove({ courtId, date, start })}>
+        Move
+      </button>
+    </fieldset>
+  )
+}
 
 export default function Calendar() {
   const me = useMe()
@@ -35,6 +77,7 @@ export default function Calendar() {
     open: s.settings.openHour,
     slot: s.settings.slotMinutes,
     rows: slotsFor(s.settings).length,
+    slots: slotsFor(s.settings),
     reservations: s.reservations.filter((r) => r.status !== 'cancelled' && days.includes(r.date)),
     blocks: s.blocks.filter((b) => !b.lessonId && days.includes(b.date)),
     lessons: s.lessons.filter((l) => l.status !== 'cancelled' && days.includes(l.date)),
@@ -61,6 +104,11 @@ export default function Calendar() {
         setGhost({ date: d.date, courtId: d.courtId, top: Math.min(d.from, d.to), height: Math.abs(d.to - d.from) + 1 })
         return
       }
+      if (d.kind === 'resize') {
+        d.endRow = clamp(Math.round((e.clientY - d.colTop) / ROW_H), Math.ceil(d.startRow) + 1, rows)
+        setGhost({ date: d.block.date, courtId: d.block.courtId, top: d.startRow, height: d.endRow - d.startRow })
+        return
+      }
       if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 4) return
       d.moved = true
       const col = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-col]')
@@ -79,13 +127,21 @@ export default function Calendar() {
         const from = Math.min(d.from, d.to)
         const to = Math.max(d.from, d.to) + 1
         setPending({ courtId: d.courtId, date: d.date, start: timeOf(from), end: timeOf(to) })
+      } else if (d.kind === 'resize') {
+        if (d.endRow !== rowOf(d.block.end)) {
+          void run(() => api.moveBlock(d.block.id, { end: timeOf(d.endRow) }), 'Block resized')
+        }
       } else if (!d.moved) {
-        setSelected({ kind: 'block', id: d.block.id })
+        setSelected({ kind: d.item.type === 'res' ? 'res' : 'block', id: d.item.id })
       } else if (d.target) {
-        const span = toMin(d.block.end) - toMin(d.block.start)
         const start = timeOf(d.target.row)
-        const end = fromMin(toMin(start) + span)
-        void run(() => api.moveBlock(d.block.id, { courtId: d.target!.courtId, date: d.target!.date, start, end }), 'Block moved')
+        const { courtId, date } = d.target
+        if (d.item.type === 'block') {
+          const end = fromMin(toMin(start) + toMin(d.item.end) - toMin(d.item.start))
+          void run(() => api.moveBlock(d.item.id, { courtId, date, start, end }), 'Block moved')
+        } else {
+          void run(() => api.moveReservation(d.item.id, { courtId, date, start }, me.id), 'Reservation moved')
+        }
       }
     }
     window.addEventListener('pointermove', onMove)
@@ -95,7 +151,7 @@ export default function Calendar() {
       window.removeEventListener('pointerup', onUp)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, open, slot, run])
+  }, [rows, open, slot, run, me.id])
 
   const startCreate = (e: ReactPointerEvent<HTMLDivElement>, date: string, courtId: string) => {
     if (e.target !== e.currentTarget) return
@@ -105,17 +161,23 @@ export default function Calendar() {
     setGhost({ date, courtId, top: row, height: 1 })
   }
 
-  const startMove = (e: ReactPointerEvent<HTMLDivElement>, block: Block) => {
+  const startMove = (e: ReactPointerEvent<HTMLElement>, item: { type: 'res' | 'block'; id: string; start: string; end: string }) => {
     const rect = e.currentTarget.getBoundingClientRect()
     dragRef.current = {
       kind: 'move',
-      block,
+      item,
       x0: e.clientX,
       y0: e.clientY,
       grab: e.clientY - rect.top,
-      len: (toMin(block.end) - toMin(block.start)) / slot,
+      len: (toMin(item.end) - toMin(item.start)) / slot,
       moved: false,
     }
+  }
+
+  const startResize = (e: ReactPointerEvent<HTMLElement>, block: Block) => {
+    e.stopPropagation()
+    const col = e.currentTarget.closest<HTMLElement>('[data-col]')!
+    dragRef.current = { kind: 'resize', block, colTop: col.getBoundingClientRect().top, startRow: rowOf(block.start), endRow: rowOf(block.end) }
   }
 
   // ----- details -----
@@ -147,12 +209,12 @@ export default function Calendar() {
         <button type="button" aria-label="Next week" className="rounded border bg-white px-3 py-1.5" onClick={() => setWeekStart((w) => addWeeks(w, 1))}>›</button>
         <span className="text-sm text-slate-600">{format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}</span>
       </div>
-      <p className="mb-2 text-xs text-slate-500">Drag on an empty area to block time. Drag a block to move it. Click any item for details.</p>
+      <p className="mb-2 text-xs text-slate-500">Drag on an empty area to block time. Drag a block to move it, or its bottom edge to resize it. Drag a booked reservation to move it. Click any item for details.</p>
       <ul className="mb-2 flex flex-wrap gap-2 text-xs">
         <li className="rounded bg-green-200 px-2 py-0.5">Reservation</li>
         <li className="rounded bg-amber-200 px-2 py-0.5">No-show</li>
         <li className="rounded bg-purple-200 px-2 py-0.5">Lesson</li>
-        <li className="rounded bg-slate-400 px-2 py-0.5 text-white">Block</li>
+        <li className="rounded bg-slate-600 px-2 py-0.5 text-white">Block</li>
       </ul>
 
       <div className="overflow-auto rounded-lg border bg-white">
@@ -170,7 +232,7 @@ export default function Calendar() {
                 <div className="py-1 text-center text-xs font-medium">{format(parseISO(date), 'EEE d')}</div>
                 <div className="flex">
                   {courts.map((c) => (
-                    <div key={c.id} style={{ width: COL_W }} title={c.name} className={`py-1 text-center text-[10px] text-slate-500 ${c.active ? '' : 'line-through opacity-50'}`}>
+                    <div key={c.id} style={{ width: COL_W }} title={c.name} className={`py-1 text-center text-[10px] text-slate-500 ${c.active ? '' : 'line-through'}`}>
                       C{c.id.replace('court-', '')}
                     </div>
                   ))}
@@ -194,16 +256,18 @@ export default function Calendar() {
                     onPointerDown={(e) => startCreate(e, date, c.id)}
                   >
                     {data.reservations.filter((r) => r.date === date && r.courtId === c.id).map((r) => (
-                      <button
+                      <div
                         key={r.id}
-                        type="button"
-                        title={`${data.names[r.playerId]} ${r.start}–${r.end}`}
-                        style={{ ...place(r.start, r.end), left: 2, right: 2 }}
-                        className={`absolute overflow-hidden rounded px-0.5 text-left text-[10px] leading-tight ${r.status === 'no-show' ? 'bg-amber-200 text-amber-900' : 'bg-green-200 text-green-900'}`}
-                        onClick={() => setSelected({ kind: 'res', id: r.id })}
+                        role="button"
+                        tabIndex={0}
+                        title={`${data.names[r.playerId]} ${r.start}–${r.end}${r.status === 'booked' ? ' (drag to move)' : ''}`}
+                        style={{ ...place(r.start, r.end), left: 2, right: 2, touchAction: 'none' }}
+                        className={`absolute overflow-hidden rounded px-0.5 text-left text-[10px] leading-tight ${r.status === 'booked' ? 'cursor-grab' : ''} ${r.status === 'no-show' ? 'bg-amber-200 text-amber-900' : 'bg-green-200 text-green-900'}`}
+                        onPointerDown={(e) => (r.status === 'booked' ? startMove(e, { type: 'res', id: r.id, start: r.start, end: r.end }) : setSelected({ kind: 'res', id: r.id }))}
+                        onKeyDown={(e) => e.key === 'Enter' && setSelected({ kind: 'res', id: r.id })}
                       >
                         {data.names[r.playerId]?.split(' ')[0]}
-                      </button>
+                      </div>
                     ))}
                     {data.lessons.filter((l) => l.date === date && l.courtId === c.id).map((l) => (
                       <button
@@ -224,11 +288,17 @@ export default function Calendar() {
                         tabIndex={0}
                         title={`${b.reason} ${b.start}–${b.end} (drag to move)`}
                         style={{ ...place(b.start, b.end), left: 2, right: 2, touchAction: 'none' }}
-                        className="absolute cursor-grab overflow-hidden rounded bg-slate-500 px-0.5 text-[10px] leading-tight text-white"
-                        onPointerDown={(e) => startMove(e, b)}
+                        className="absolute cursor-grab overflow-hidden rounded bg-slate-600 px-0.5 text-[10px] leading-tight text-white"
+                        onPointerDown={(e) => startMove(e, { type: 'block', id: b.id, start: b.start, end: b.end })}
                         onKeyDown={(e) => e.key === 'Enter' && setSelected({ kind: 'block', id: b.id })}
                       >
                         {b.reason}
+                        <span
+                          aria-hidden
+                          title="Drag to resize"
+                          className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize bg-white/40"
+                          onPointerDown={(e) => startResize(e, b)}
+                        />
                       </div>
                     ))}
                     {ghost && ghost.date === date && ghost.courtId === c.id && (
@@ -290,6 +360,19 @@ export default function Calendar() {
               </div>
             ))}
           </dl>
+          {selectedRes?.status === 'booked' && (
+            <MoveForm
+              key={selectedRes.id}
+              reservation={selectedRes}
+              courts={courts}
+              slots={data.slots}
+              onMove={async (to) => {
+                const id = selectedRes.id
+                const result = await run(() => api.moveReservation(id, to, me.id), 'Reservation moved')
+                if (result.ok) setSelected(null)
+              }}
+            />
+          )}
           <div className="mt-4 flex justify-end gap-2">
             {selected.kind === 'block' && (
               <button

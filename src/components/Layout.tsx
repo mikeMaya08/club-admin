@@ -3,11 +3,13 @@ import { logout } from 'club-store'
 import { useMe } from '../lib/useMe'
 import PendingBar from './PendingBar'
 import NotificationBell from './NotificationBell'
+import ThemeToggle from './ThemeToggle'
 
 const LINKS = [
   { to: '/', label: 'Dashboard', id: 'dashboard', end: true },
   { to: '/calendar', label: 'Calendar', id: 'calendar' },
   { to: '/reservations', label: 'Reservations', id: 'reservations' },
+  { to: '/lessons', label: 'Lessons', id: 'lessons' },
   { to: '/courts', label: 'Courts', id: 'courts' },
   { to: '/users', label: 'Users', id: 'users' },
   { to: '/settings', label: 'Settings', id: 'settings' },
@@ -19,6 +21,12 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
+      <a
+        href="#main"
+        className="sr-only rounded bg-white px-3 py-2 text-slate-900 focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[90]"
+      >
+        Skip to content
+      </a>
       <PendingBar />
       <aside className="bg-slate-900 text-slate-100 md:w-52 md:shrink-0">
         <div className="flex items-center justify-between px-4 py-3 md:block">
@@ -34,7 +42,7 @@ export default function Layout() {
               end={l.end}
               data-testid={`nav-${l.id}`}
               className={({ isActive }) =>
-                `whitespace-nowrap rounded-md px-3 py-2 text-sm ${isActive ? 'bg-slate-700 font-medium' : 'text-slate-300 hover:bg-slate-800'}`
+                `whitespace-nowrap rounded-md px-3 py-2 text-sm ${isActive ? 'bg-slate-700 font-medium' : 'text-slate-200 hover:bg-slate-800'}`
               }
             >
               {l.label}
@@ -49,6 +57,7 @@ export default function Layout() {
             <span className="inline-block h-6 w-6 rounded-full" style={{ background: me.avatarColor }} aria-hidden />
             {me.name}
           </span>
+          <ThemeToggle />
           <NotificationBell />
           <button
             type="button"
@@ -62,7 +71,7 @@ export default function Layout() {
             Log out
           </button>
         </header>
-        <main className="min-w-0 flex-1 p-3 md:p-5">
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1 p-3 outline-none md:p-5">
           <Outlet context={me} />
         </main>
       </div>
