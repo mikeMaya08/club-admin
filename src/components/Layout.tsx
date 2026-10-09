@@ -12,6 +12,7 @@ const LINKS = [
   { to: '/lessons', label: 'Lessons', id: 'lessons' },
   { to: '/courts', label: 'Courts', id: 'courts' },
   { to: '/users', label: 'Users', id: 'users' },
+  { to: '/activity', label: 'Activity', id: 'activity' },
   { to: '/settings', label: 'Settings', id: 'settings' },
 ]
 
