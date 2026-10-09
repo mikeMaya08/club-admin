@@ -1,5 +1,6 @@
 import { toggleTheme, useTheme } from '../lib/theme'
 
+/** Light/dark switch. The choice is shared by all apps (see lib/theme.ts). */
 export default function ThemeToggle() {
   const theme = useTheme()
   return (

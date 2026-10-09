@@ -3,6 +3,7 @@ import { clock, slotsFor, useClub } from 'club-store'
 
 const WEEK = { weekStartsOn: 1 } as const
 
+/** One number card of the dashboard. */
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg border bg-white p-4">
@@ -39,15 +40,18 @@ function BarChart({ data }: { data: { label: string; value: number }[] }) {
   )
 }
 
+/** Club overview: today's occupancy, revenue, this week's no-shows, upcoming blocks and a bookings chart. */
 export default function Dashboard() {
   const d = useClub((s) => {
     const now = clock.now()
     const today = clock.today()
     const weekStart = format(startOfWeek(now, WEEK), 'yyyy-MM-dd')
     const weekEnd = format(endOfWeek(now, WEEK), 'yyyy-MM-dd')
+    // Revenue counts booked and completed reservations only: cancellations and no-shows are left out.
     const paid = (r: { status: string }) => r.status === 'booked' || r.status === 'completed'
     const inWeek = (date: string) => date >= weekStart && date <= weekEnd
 
+    // Occupancy = used slots today / (active courts x slots per day). Lessons use a slot too.
     const activeCourts = s.courts.filter((c) => c.active).length
     const capacity = activeCourts * slotsFor(s.settings).length
     const occupied =
