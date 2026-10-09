@@ -14,6 +14,10 @@ the elements: tables, forms, filters and dialogs have them; the calendar and the
 - **Settings:** zod-validated form for every setting; saving updates the player app live.
 - Hidden debug panel: **Ctrl+Shift+D**.
 
+## Activity log
+
+**Activity** (`/admin/activity`) shows every event in the club: filters by type group, user (or *System*) and date range, newest first, pagination (10/25/50) and **CSV export**. Admin actions now record the acting admin (moves, deletes, user, court and settings changes). It is the place to check side effects, e.g. a block shows `block.created` plus one `reservation.cancelled` per cancelled booking. The debug panel has a new bug, `missing-events`, that stops cancellations from being logged.
+
 ## Added in the product upgrade
 
 - **Calendar:** drag a booked reservation to another court, day or hour (price and end time are recalculated and the player is notified), resize a block by its bottom edge, and use the *Move reservation* form in the details dialog as a keyboard-friendly alternative to dragging.
