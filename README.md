@@ -14,6 +14,16 @@ the elements: tables, forms, filters and dialogs have them; the calendar and the
 - **Settings:** zod-validated form for every setting; saving updates the player app live.
 - Hidden debug panel: **Ctrl+Shift+D**.
 
+## Added in the product upgrade
+
+- **Calendar:** drag a booked reservation to another court, day or hour (price and end time are recalculated and the player is notified), resize a block by its bottom edge, and use the *Move reservation* form in the details dialog as a keyboard-friendly alternative to dragging.
+- **Lessons:** new page to create lessons for any coach, edit them (title, court, date, time, capacity; students are notified) and cancel them, with enrolled and waitlist counts.
+
+## Dark mode and accessibility
+
+- **Dark mode:** toggle in the header (🌙/☀️). The choice is saved in `localStorage['club:theme']`, which all apps share, and defaults to the operating system preference. It is implemented by remapping the Tailwind utilities in `src/index.css` under a `.dark` class (no `dark:` variants on each element).
+- **Accessibility:** skip link, landmarks, visible focus ring, dialogs with `aria-labelledby`, focus moved into the dialog, kept inside it with Tab and restored on close. Audited with axe-core (WCAG 2 A/AA + best practices) on every page and dialog in light and dark themes: 0 violations at the time of writing.
+
 ## Scripts
 
 | Script          | What it does                                  |

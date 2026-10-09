@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import Calendar from './pages/Calendar'
 import Courts from './pages/Courts'
 import Dashboard from './pages/Dashboard'
+import Lessons from './pages/Lessons'
 import Login from './pages/Login'
 import Reservations from './pages/Reservations'
 import Settings from './pages/Settings'
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="courts" element={<Courts />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="reservations" element={<Reservations />} />
+            <Route path="lessons" element={<Lessons />} />
             <Route path="users" element={<Users />} />
             <Route path="settings" element={<Settings />} />
           </Route>

@@ -4,7 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import { initClub } from 'club-store'
 import App from './App'
 import { ToastProvider } from './components/Toast'
+import { applyTheme } from './lib/theme'
 import './index.css'
+
+applyTheme()
 
 // Apply ?reset / ?as / ?now / ?bug ... before anything renders.
 initClub('admin')

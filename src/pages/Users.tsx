@@ -30,7 +30,7 @@ export default function Users() {
             {users.map((u) => {
               const self = u.id === me.id
               return (
-                <tr key={u.id} data-testid={`user-row-${u.id}`} data-active={u.active} className={`border-t ${u.active ? '' : 'bg-slate-50 text-slate-400'}`}>
+                <tr key={u.id} data-testid={`user-row-${u.id}`} data-active={u.active} className={`border-t ${u.active ? '' : 'bg-slate-50 text-slate-500'}`}>
                   <td data-testid={`user-name-${u.id}`} className="p-3 font-medium">{u.name}</td>
                   <td className="p-3">{u.email}</td>
                   <td className="p-3">{u.level}</td>
