@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { addDays, addWeeks, format, parseISO, startOfWeek } from 'date-fns'
-import { api, clock, fromMin, slotsFor, toMin, useClub, type Block } from 'club-store'
+import { api, at, clock, fromMin, previewRecurringBlock, slotsFor, toMin, useClub, type Block } from 'club-store'
 import Modal from '../components/Modal'
+import { useToast } from '../components/Toast'
 import { useMe } from '../lib/useMe'
 import { useRun } from '../lib/useRun'
 
@@ -62,9 +63,12 @@ function MoveForm({ reservation, courts, slots, onMove }: MoveFormProps) {
 export default function Calendar() {
   const me = useMe()
   const { run } = useRun()
+  const toast = useToast()
   const [weekStart, setWeekStart] = useState(() => startOfWeek(clock.now(), WEEK))
   const [pending, setPending] = useState<{ courtId: string; date: string; start: string; end: string } | null>(null)
   const [reason, setReason] = useState<'maintenance' | 'tournament'>('maintenance')
+  const [weeks, setWeeks] = useState(1) // 1 = a single block, more = weekly series
+  const [confirmSeries, setConfirmSeries] = useState(false)
   const [selected, setSelected] = useState<Selection | null>(null)
   const [ghost, setGhost] = useState<Ghost | null>(null)
   const dragRef = useRef<Drag | null>(null)
@@ -189,16 +193,20 @@ export default function Calendar() {
     }
     if (selected.kind === 'block') {
       const b = data.blocks.find((x) => x.id === selected.id)
-      return b && { title: 'Block', lines: [['Court', courtName(b.courtId)], ['When', `${b.date} ${b.start}–${b.end}`], ['Reason', b.reason], ['Created by', data.names[b.createdBy]]] }
+      return b && { title: 'Block', lines: [['Court', courtName(b.courtId)], ['When', `${b.date} ${b.start}–${b.end}`], ['Reason', b.reason], ['Created by', data.names[b.createdBy]], ...(b.seriesId ? [['Repeats', 'Every week']] : [])] }
     }
     const l = data.lessons.find((x) => x.id === selected.id)
     return l && { title: 'Lesson', lines: [['Title', l.title], ['Court', courtName(l.courtId)], ['When', `${l.date} ${l.start}–${l.end}`], ['Coach', data.names[l.coachId]], ['Students', `${l.studentIds.length} / ${l.capacity}`], ['Status', l.status]] }
   })()
   const selectedRes = selected?.kind === 'res' ? data.reservations.find((x) => x.id === selected.id) : undefined
 
-  const overlapping = pending
-    ? data.reservations.filter((r) => r.status === 'booked' && r.courtId === pending.courtId && r.date === pending.date && r.start < pending.end && pending.start < r.end).length
-    : 0
+  // What creating the block (or weekly series) would do, shown before the admin confirms.
+  const preview = useClub((s) => (pending ? previewRecurringBlock(s, { ...pending, weeks }) : null))
+  const overlapping = preview?.reservations.length ?? 0
+
+  const selectedBlock = selected?.kind === 'block' ? data.blocks.find((b) => b.id === selected.id) : undefined
+  const seriesId = selectedBlock?.seriesId
+  const seriesUpcoming = useClub((s) => (seriesId ? s.blocks.filter((b) => b.seriesId === seriesId && at(b.date, b.start) > clock.now()).length : 0))
 
   return (
     <section>
@@ -316,7 +324,7 @@ export default function Calendar() {
       </div>
 
       {pending && (
-        <Modal title="Block court time" testId="block-dialog" onClose={() => setPending(null)}>
+        <Modal title="Block court time" testId="block-dialog" onClose={() => { setPending(null); setWeeks(1) }}>
           <p className="text-sm text-slate-600">
             {courtName(pending.courtId)} · {pending.date} · {pending.start}–{pending.end}
           </p>
@@ -327,13 +335,32 @@ export default function Calendar() {
               <option value="tournament">Tournament</option>
             </select>
           </label>
+          <label className="mt-3 block text-sm">
+            <span className="mb-1 block text-slate-500">Repeat</span>
+            <select data-testid="block-repeat" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} className="w-full rounded border px-3 py-2">
+              <option value={1}>Just this once</option>
+              {[2, 4, 8, 12].map((n) => (
+                <option key={n} value={n}>Every week for {n} weeks</option>
+              ))}
+            </select>
+          </label>
+          {weeks > 1 && preview && (
+            <p data-testid="block-series-dates" className="mt-2 text-xs text-slate-600">
+              {preview.dates.length} blocks: {preview.dates[0]} to {preview.dates[preview.dates.length - 1]}
+            </p>
+          )}
+          {preview && preview.conflicts.length > 0 && (
+            <p data-testid="block-conflicts" role="alert" className="mt-3 rounded bg-red-50 p-2 text-xs text-red-700">
+              Cannot be created: {preview.conflicts.map((c) => `${c.date} overlaps ${c.what}`).join('; ')}.
+            </p>
+          )}
           {overlapping > 0 && (
             <p data-testid="block-warning" className="mt-3 rounded bg-amber-50 p-2 text-xs text-amber-700">
               {overlapping} existing reservation{overlapping === 1 ? '' : 's'} will be cancelled and the player{overlapping === 1 ? '' : 's'} notified.
             </p>
           )}
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" className="rounded border px-4 py-2 text-sm" onClick={() => setPending(null)}>Cancel</button>
+            <button type="button" className="rounded border px-4 py-2 text-sm" onClick={() => { setPending(null); setWeeks(1) }}>Cancel</button>
             <button
               type="button"
               data-testid="block-create"
@@ -341,17 +368,26 @@ export default function Calendar() {
               onClick={async () => {
                 const input = { ...pending, reason, createdBy: me.id }
                 setPending(null)
-                await run(() => api.createBlock(input), 'Block created')
+                setWeeks(1)
+                if (weeks === 1) {
+                  await run(() => api.createBlock(input), 'Block created')
+                  return
+                }
+                const result = await run(() => api.createRecurringBlock({ ...input, weeks }))
+                if (result.ok) {
+                  const { blocks, cancelled } = result.value
+                  toast(`${blocks.length} weekly blocks created${cancelled ? `, ${cancelled} reservation${cancelled === 1 ? '' : 's'} cancelled` : ''}`, 'success')
+                }
               }}
             >
-              Create block
+              {weeks > 1 ? `Create ${weeks} blocks` : 'Create block'}
             </button>
           </div>
         </Modal>
       )}
 
       {selected && detail && (
-        <Modal title={detail.title} testId="item-dialog" onClose={() => setSelected(null)}>
+        <Modal title={detail.title} testId="item-dialog" onClose={() => { setSelected(null); setConfirmSeries(false) }}>
           <dl className="space-y-1 text-sm">
             {detail.lines.map(([k, v]) => (
               <div key={k} className="flex justify-between gap-4">
@@ -374,6 +410,22 @@ export default function Calendar() {
             />
           )}
           <div className="mt-4 flex justify-end gap-2">
+            {seriesId && seriesUpcoming > 1 && (
+              <button
+                type="button"
+                data-testid="block-series-delete"
+                className="rounded border border-red-300 px-3 py-2 text-sm text-red-700"
+                onClick={async () => {
+                  if (!confirmSeries) return setConfirmSeries(true)
+                  setConfirmSeries(false)
+                  setSelected(null)
+                  const result = await run(() => api.deleteBlockSeries(seriesId, me.id))
+                  if (result.ok) toast(`${result.value} upcoming blocks deleted`, 'success')
+                }}
+              >
+                {confirmSeries ? `Confirm: delete ${seriesUpcoming} upcoming` : `Delete all upcoming (${seriesUpcoming})`}
+              </button>
+            )}
             {selected.kind === 'block' && (
               <button
                 type="button"
