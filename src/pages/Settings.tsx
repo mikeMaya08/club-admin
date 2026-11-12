@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { api, getState, settingsSchema, useClub, type Settings as SettingsType } from 'club-store'
+import { useMe } from '../lib/useMe'
 import { useRun } from '../lib/useRun'
 
 type Key = keyof SettingsType
@@ -20,6 +21,7 @@ const FIELDS: { key: Key; label: string; type: 'number' | 'time' | 'text'; step?
 const toForm = (s: SettingsType) => Object.fromEntries(FIELDS.map((f) => [f.key, String(s[f.key])])) as Record<Key, string>
 
 export default function Settings() {
+  const me = useMe()
   const { run, busy } = useRun()
   const saved = useClub((s) => s.settings)
   const [form, setForm] = useState(() => toForm(getState().settings))
@@ -38,7 +40,7 @@ export default function Settings() {
       return
     }
     setErrors({})
-    const r = await run(() => api.updateSettings(result.data), 'Settings saved')
+    const r = await run(() => api.updateSettings(result.data, me.id), 'Settings saved')
     if (r.ok) setForm(toForm(r.value))
   }
 

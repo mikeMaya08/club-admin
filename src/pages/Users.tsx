@@ -42,7 +42,7 @@ export default function Users() {
                       disabled={self}
                       title={self ? "You can't change your own role" : undefined}
                       className="rounded border px-2 py-1 disabled:opacity-50"
-                      onChange={(e) => run(() => api.setUserRole(u.id, e.target.value as Role), 'Role updated')}
+                      onChange={(e) => run(() => api.setUserRole(u.id, e.target.value as Role, me.id), 'Role updated')}
                     >
                       {ROLES.map((r) => (
                         <option key={r} value={r}>{r}</option>
@@ -89,7 +89,7 @@ export default function Users() {
               onClick={async () => {
                 const target = pending
                 setPending(null)
-                await run(() => api.setUserActive(target.id, !target.active), target.active ? 'User deactivated' : 'User reactivated')
+                await run(() => api.setUserActive(target.id, !target.active, me.id), target.active ? 'User deactivated' : 'User reactivated')
               }}
             >
               Confirm

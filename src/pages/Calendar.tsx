@@ -129,7 +129,7 @@ export default function Calendar() {
         setPending({ courtId: d.courtId, date: d.date, start: timeOf(from), end: timeOf(to) })
       } else if (d.kind === 'resize') {
         if (d.endRow !== rowOf(d.block.end)) {
-          void run(() => api.moveBlock(d.block.id, { end: timeOf(d.endRow) }), 'Block resized')
+          void run(() => api.moveBlock(d.block.id, { end: timeOf(d.endRow) }, me.id), 'Block resized')
         }
       } else if (!d.moved) {
         setSelected({ kind: d.item.type === 'res' ? 'res' : 'block', id: d.item.id })
@@ -138,7 +138,7 @@ export default function Calendar() {
         const { courtId, date } = d.target
         if (d.item.type === 'block') {
           const end = fromMin(toMin(start) + toMin(d.item.end) - toMin(d.item.start))
-          void run(() => api.moveBlock(d.item.id, { courtId, date, start, end }), 'Block moved')
+          void run(() => api.moveBlock(d.item.id, { courtId, date, start, end }, me.id), 'Block moved')
         } else {
           void run(() => api.moveReservation(d.item.id, { courtId, date, start }, me.id), 'Reservation moved')
         }
@@ -382,7 +382,7 @@ export default function Calendar() {
                 onClick={async () => {
                   const id = selected.id
                   setSelected(null)
-                  await run(() => api.deleteBlock(id), 'Block deleted')
+                  await run(() => api.deleteBlock(id, me.id), 'Block deleted')
                 }}
               >
                 Delete block

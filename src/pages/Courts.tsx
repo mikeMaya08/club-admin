@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { api, useClub, type Court } from 'club-store'
 import Modal from '../components/Modal'
+import { useMe } from '../lib/useMe'
 import { useRun } from '../lib/useRun'
 
 export default function Courts() {
+  const me = useMe()
   const { run, busy } = useRun()
   const courts = useClub((s) => s.courts)
   const [name, setName] = useState('')
@@ -16,7 +18,7 @@ export default function Courts() {
   const add = async (e: FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
-    const result = await run(() => api.createCourt({ name: name.trim(), surface, lights }), 'Court created')
+    const result = await run(() => api.createCourt({ name: name.trim(), surface, lights }, me.id), 'Court created')
     if (result.ok) setName('')
   }
 
@@ -67,7 +69,7 @@ export default function Courts() {
                     data-testid={`court-lights-${c.id}`}
                     aria-label={`Lights for ${c.name}`}
                     checked={c.lights}
-                    onChange={(e) => run(() => api.updateCourt(c.id, { lights: e.target.checked }))}
+                    onChange={(e) => run(() => api.updateCourt(c.id, { lights: e.target.checked }, me.id))}
                   />
                 </td>
                 <td className="p-3">
@@ -76,7 +78,7 @@ export default function Courts() {
                     data-testid={`court-active-${c.id}`}
                     aria-label={`Active for ${c.name}`}
                     checked={c.active}
-                    onChange={(e) => run(() => api.updateCourt(c.id, { active: e.target.checked }))}
+                    onChange={(e) => run(() => api.updateCourt(c.id, { active: e.target.checked }, me.id))}
                   />
                 </td>
                 <td className="space-x-2 p-3 text-right">
@@ -112,7 +114,7 @@ export default function Courts() {
               disabled={!editName.trim()}
               className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
               onClick={async () => {
-                const r = await run(() => api.updateCourt(editing.id, { name: editName.trim() }), 'Court renamed')
+                const r = await run(() => api.updateCourt(editing.id, { name: editName.trim() }, me.id), 'Court renamed')
                 if (r.ok) setEditing(null)
               }}
             >
@@ -132,7 +134,7 @@ export default function Courts() {
               data-testid="court-delete-confirm"
               className="rounded bg-red-600 px-4 py-2 text-sm text-white"
               onClick={async () => {
-                await run(() => api.deleteCourt(toDelete.id), 'Court deleted')
+                await run(() => api.deleteCourt(toDelete.id, me.id), 'Court deleted')
                 setToDelete(null)
               }}
             >
