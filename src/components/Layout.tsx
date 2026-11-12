@@ -11,6 +11,7 @@ const LINKS = [
   { to: '/reservations', label: 'Reservations', id: 'reservations' },
   { to: '/lessons', label: 'Lessons', id: 'lessons' },
   { to: '/courts', label: 'Courts', id: 'courts' },
+  { to: '/announcements', label: 'Announcements', id: 'announcements' },
   { to: '/users', label: 'Users', id: 'users' },
   { to: '/activity', label: 'Activity', id: 'activity' },
   { to: '/settings', label: 'Settings', id: 'settings' },

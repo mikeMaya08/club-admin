@@ -24,6 +24,10 @@ In the calendar, drag on empty space as before and choose **Repeat: every week f
 - The activity log records `block.series_created`, `block.series_deleted` and one `reservation.cancelled` per affected reservation.
 - Needs `club-store` v0.4.0.
 
+## Announcements
+
+**Announcements** (`/admin/announcements`) posts club messages for everyone, only the players or only the coaches. A title (up to 80 characters) and a message (up to 500) are required; an optional expiry date hides it after that day, and **Pin** keeps it on top where players and coaches cannot dismiss it. The table lists every announcement (including expired ones) and deleting one asks for confirmation and removes it for everyone. Posting notifies the active users of the audience and is recorded in the activity log. Test ids: `announcement-title`, `announcement-body`, `announcement-audience`, `announcement-expires`, `announcement-pinned`, `announcement-post`, `announcement-row-<id>`, `announcement-delete-<id>`, `announcement-delete-confirm`. Needs club-store `v0.5.0`.
+
 ## Activity log
 
 **Activity** (`/admin/activity`) shows every event in the club: filters by type group, user (or *System*) and date range, newest first, pagination (10/25/50) and **CSV export**. Admin actions now record the acting admin (moves, deletes, user, court and settings changes). It is the place to check side effects, e.g. a block shows `block.created` plus one `reservation.cancelled` per cancelled booking. The debug panel has a new bug, `missing-events`, that stops cancellations from being logged.
