@@ -154,7 +154,7 @@ export default function Reservations() {
                 <td data-testid={`res-date-${r.id}`} className="p-3">{r.date}</td>
                 <td data-testid={`res-court-${r.id}`} className="p-3">{courtName(r.courtId)}</td>
                 <td data-testid={`res-player-${r.id}`} className="p-3">{data.names[r.playerId] ?? r.playerId}</td>
-                <td data-testid={`res-status-${r.id}`} className="p-3">{r.status}</td>
+                <td data-testid={`res-status-${r.id}`} className="p-3">{r.status === 'cancelled' ? 'canceled' : r.status}</td>
                 <td data-testid={`res-price-${r.id}`} className="p-3">{r.price} {data.currency}</td>
                 <td data-testid={`res-time-${r.id}`} className="p-3">{r.start}–{r.end}</td>
                 <td className="space-x-2 p-3 text-right">
