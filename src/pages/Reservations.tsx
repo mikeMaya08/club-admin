@@ -14,8 +14,10 @@ const COLUMNS: { key: SortKey; label: string }[] = [
 ]
 const STATUSES: Reservation['status'][] = ['booked', 'completed', 'no-show', 'cancelled']
 
+/** Quotes a value for CSV and doubles any quote inside it. */
 const csvCell = (v: string | number | undefined) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
+/** All reservations with filters, sortable columns, pagination, CSV export and admin actions (no-show, cancel). */
 export default function Reservations() {
   const me = useMe()
   const { run } = useRun()
@@ -35,6 +37,7 @@ export default function Reservations() {
 
   const courtName = (id: string) => data.courts.find((c) => c.id === id)?.name ?? id
 
+  // Filter first, then sort. `rows` is the full result: the page below only slices it for display.
   const rows = useMemo(() => {
     const filtered = data.reservations.filter(
       (r) =>
@@ -71,9 +74,11 @@ export default function Reservations() {
     setPage(0)
   }
 
+  // Clicking the active column flips the direction; clicking another column starts ascending.
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
 
+  // Exports every row that matches the filters (not just the current page).
   const exportCsv = () => {
     const header = ['id', 'date', 'start', 'end', 'court', 'player', 'partner', 'status', 'price', 'cancelReason']
     const lines = rows.map((r) =>

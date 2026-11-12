@@ -8,6 +8,7 @@ interface Item {
 }
 
 const ToastContext = createContext<(message: string, kind?: Kind) => void>(() => {})
+/** Returns `toast(message, kind)`; toasts disappear on their own after 3 seconds. */
 export const useToast = () => useContext(ToastContext)
 
 const STYLES: Record<Kind, string> = {

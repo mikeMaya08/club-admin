@@ -15,5 +15,6 @@ export default function Guard() {
     const message = status === 'inactive' || status === 'wrong-role' ? MESSAGES[status] : undefined
     return <Navigate to="/login" replace state={{ from: location.pathname, message }} />
   }
+  // Pages read the logged-in admin with `useMe()` instead of checking the session again.
   return <Outlet context={user} />
 }

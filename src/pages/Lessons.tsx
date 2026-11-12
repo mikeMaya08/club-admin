@@ -22,6 +22,7 @@ const STATUS_STYLE: Record<Lesson['status'], string> = {
 
 const input = 'w-full rounded border px-2 py-1.5 text-sm'
 
+/** The lesson form fields, shared by the create form and the edit dialog (the coach can only be chosen on create). */
 function Fields({ form, setForm, coaches, courts, showCoach }: {
   form: Form
   setForm: (f: Form) => void
@@ -70,10 +71,12 @@ function Fields({ form, setForm, coaches, courts, showCoach }: {
   )
 }
 
+/** Lessons table: admins can create lessons for any coach, edit them and cancel them. */
 export default function Lessons() {
   const me = useMe()
   const { run, busy } = useRun()
   const data = useClub((s) => ({
+    // newest first, copied so the stored array is never reordered
     lessons: [...s.lessons].sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start)),
     coaches: s.users.filter((u) => u.role === 'coach' && u.active),
     courts: s.courts,
