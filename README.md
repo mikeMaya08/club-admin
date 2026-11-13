@@ -9,7 +9,7 @@ the elements: tables, forms, filters and dialogs have them; the calendar and the
 - **Dashboard:** today's occupancy %, revenue (today / this week), no-shows this week, upcoming blocks, bookings-per-day chart (inline SVG).
 - **Courts:** CRUD table, inline switches for *active* and *lights*, rename, delete (blocked with `COURT_IN_USE` when future reservations exist).
 - **Calendar:** week view, one column per court inside each day. Drag on empty space to create a block (reason picker), drag a block to move it, click an item for details.
-- **Reservations:** filters (date range, court, status, player), sortable columns, pagination (10/25/50), CSV export, row actions (no-show, cancel).
+- **Reservations:** filters (date range, court, status, player), sortable columns, pagination (10/25/50), CSV export, row actions (no-show, cancel) and bulk actions on selected rows.
 - **Users:** role change and active/inactive switch with confirm (you cannot change yourself).
 - **Settings:** zod-validated form for every setting; saving updates the player app live.
 - Hidden debug panel: **Ctrl+Shift+D**.
@@ -27,6 +27,10 @@ In the calendar, drag on empty space as before and choose **Repeat: every week f
 ## Announcements
 
 **Announcements** (`/admin/announcements`) posts club messages for everyone, only the players or only the coaches. A title (up to 80 characters) and a message (up to 500) are required; an optional expiry date hides it after that day, and **Pin** keeps it on top where players and coaches cannot dismiss it. The table lists every announcement (including expired ones) and deleting one asks for confirmation and removes it for everyone. Posting notifies the active users of the audience and is recorded in the activity log. Test ids: `announcement-title`, `announcement-body`, `announcement-audience`, `announcement-expires`, `announcement-pinned`, `announcement-post`, `announcement-row-<id>`, `announcement-delete-<id>`, `announcement-delete-confirm`. Needs club-store `v0.5.0`.
+
+## Bulk actions in Reservations
+
+Booked rows have a checkbox (other statuses are disabled); the header checkbox selects the booked rows of the current page and shows a partial state. Once something is selected a bar shows the count, **Select all N booked matching the filters** (across pages), **Mark no-show**, **Cancel selected** (asks for confirmation) and **Clear selection**. Selection drops rows that leave the filter or stop being booked. The actions run one reservation at a time and a failure does not stop the rest: a result panel (`bulk-result`) says "Cancelled X of Y" and lists each failure; failed rows stay selected to retry. Use `?flaky=0.5` to see partial failures. Cancelling notifies each player and every change is recorded in the activity log. Test ids: `select-page`, `res-select-<id>`, `bulk-bar`, `bulk-count`, `bulk-select-all`, `bulk-noshow`, `bulk-cancel`, `bulk-cancel-confirm`, `bulk-clear`, `bulk-result-summary`, `bulk-result-failures`.
 
 ## Activity log
 
