@@ -14,6 +14,20 @@ the elements: tables, forms, filters and dialogs have them; the calendar and the
 - **Settings:** zod-validated form for every setting; saving updates the player app live.
 - Hidden debug panel: **Ctrl+Shift+D**.
 
+## Weekly recurring blocks
+
+In the calendar, drag on empty space as before and choose **Repeat: every week for 2, 4, 8 or 12 weeks** to block the same court and time every week (weekly maintenance, a recurring tournament slot...).
+
+- Before confirming, the dialog lists the dates, **warns how many reservations will be cancelled** (the players are notified) and shows in red the weeks that **cannot** be created because another block or a lesson is already there.
+- It is all-or-nothing: if any week conflicts, nothing is created and the error names the week.
+- Opening any block of a series shows *Repeats: every week* and **Delete all upcoming (n)** (with a confirm step; past occurrences stay as history). A single occurrence can still be moved, resized or deleted on its own.
+- The activity log records `block.series_created`, `block.series_deleted` and one `reservation.cancelled` per affected reservation.
+- Needs `club-store` v0.4.0.
+
+## Announcements
+
+**Announcements** (`/admin/announcements`) posts club messages for everyone, only the players or only the coaches. A title (up to 80 characters) and a message (up to 500) are required; an optional expiry date hides it after that day, and **Pin** keeps it on top where players and coaches cannot dismiss it. The table lists every announcement (including expired ones) and deleting one asks for confirmation and removes it for everyone. Posting notifies the active users of the audience and is recorded in the activity log. Test ids: `announcement-title`, `announcement-body`, `announcement-audience`, `announcement-expires`, `announcement-pinned`, `announcement-post`, `announcement-row-<id>`, `announcement-delete-<id>`, `announcement-delete-confirm`. Needs club-store `v0.5.0`.
+
 ## Activity log
 
 **Activity** (`/admin/activity`) shows every event in the club: filters by type group, user (or *System*) and date range, newest first, pagination (10/25/50) and **CSV export**. Admin actions now record the acting admin (moves, deletes, user, court and settings changes). It is the place to check side effects, e.g. a block shows `block.created` plus one `reservation.cancelled` per cancelled booking. The debug panel has a new bug, `missing-events`, that stops cancellations from being logged.

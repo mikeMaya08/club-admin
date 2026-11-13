@@ -3,6 +3,7 @@ import DebugPanel from './components/DebugPanel'
 import Guard from './components/Guard'
 import Layout from './components/Layout'
 import Activity from './pages/Activity'
+import Announcements from './pages/Announcements'
 import Calendar from './pages/Calendar'
 import Courts from './pages/Courts'
 import Dashboard from './pages/Dashboard'
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="reservations" element={<Reservations />} />
             <Route path="lessons" element={<Lessons />} />
             <Route path="activity" element={<Activity />} />
+            <Route path="announcements" element={<Announcements />} />
             <Route path="users" element={<Users />} />
             <Route path="settings" element={<Settings />} />
           </Route>
