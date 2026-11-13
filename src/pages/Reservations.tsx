@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { api, useClub, type Reservation } from 'club-store'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { api, errorMessage, useClub, type Reservation } from 'club-store'
 import Modal from '../components/Modal'
+import { trackPending } from '../lib/pending'
 import { useMe } from '../lib/useMe'
 import { useRun } from '../lib/useRun'
 
@@ -17,7 +18,13 @@ const STATUSES: Reservation['status'][] = ['booked', 'completed', 'no-show', 'ca
 /** Quotes a value for CSV and doubles any quote inside it. */
 const csvCell = (v: string | number | undefined) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
-/** All reservations with filters, sortable columns, pagination, CSV export and admin actions (no-show, cancel). */
+type BulkKind = 'cancel' | 'no-show'
+interface BulkResult { kind: BulkKind; done: number; failed: { id: string; message: string }[] }
+
+/**
+ * All reservations with filters, sortable columns, pagination, CSV export and admin actions (no-show, cancel).
+ * Booked rows can be selected to cancel or mark them as no-show in one go; the result lists what failed.
+ */
 export default function Reservations() {
   const me = useMe()
   const { run } = useRun()
@@ -34,6 +41,10 @@ export default function Reservations() {
   const [pageSize, setPageSize] = useState(10)
   const [page, setPage] = useState(0)
   const [toCancel, setToCancel] = useState<Reservation | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmBulk, setConfirmBulk] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [result, setResult] = useState<BulkResult | null>(null)
 
   const courtName = (id: string) => data.courts.find((c) => c.id === id)?.name ?? id
 
@@ -68,6 +79,49 @@ export default function Reservations() {
   const pages = Math.max(1, Math.ceil(rows.length / pageSize))
   const current = Math.min(page, pages - 1)
   const visible = rows.slice(current * pageSize, current * pageSize + pageSize)
+
+  // Only booked reservations can be selected. Rows that left the filter or are no longer booked drop out by themselves.
+  const bookedRows = rows.filter((r) => r.status === 'booked')
+  const chosen = bookedRows.filter((r) => selected.has(r.id))
+  const pageBooked = visible.filter((r) => r.status === 'booked')
+  const pageChosen = pageBooked.filter((r) => selected.has(r.id))
+  const headerBox = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (headerBox.current) headerBox.current.indeterminate = pageChosen.length > 0 && pageChosen.length < pageBooked.length
+  })
+
+  const toggleOne = (id: string) =>
+    setSelected((cur) => {
+      const next = new Set(cur)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+  const togglePage = () =>
+    setSelected((cur) => {
+      const next = new Set(cur)
+      const all = pageBooked.length > 0 && pageChosen.length === pageBooked.length
+      pageBooked.forEach((r) => (all ? next.delete(r.id) : next.add(r.id)))
+      return next
+    })
+
+  // One call per reservation, in order. A failure does not stop the rest; failed ones stay selected to retry.
+  const runBulk = async (kind: BulkKind) => {
+    const ids = chosen.map((r) => r.id)
+    setConfirmBulk(false)
+    setBulkBusy(true)
+    const out: BulkResult = { kind, done: 0, failed: [] }
+    for (const id of ids) {
+      try {
+        await trackPending(kind === 'cancel' ? api.cancelReservation(id, me.id, { force: true }) : api.markNoShow(id, me.id))
+        out.done++
+      } catch (err) {
+        out.failed.push({ id, message: errorMessage(err) })
+      }
+    }
+    setSelected(new Set(out.failed.map((f) => f.id)))
+    setResult(out)
+    setBulkBusy(false)
+  }
 
   const setFilter = (key: keyof typeof filters, value: string) => {
     setFilters((f) => ({ ...f, [key]: value }))
@@ -130,10 +184,53 @@ export default function Reservations() {
         </button>
       </div>
 
+      {chosen.length > 0 && (
+        <div data-testid="bulk-bar" role="region" aria-label="Bulk actions" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm">
+          <span data-testid="bulk-count" aria-live="polite" className="font-medium">{chosen.length} selected</span>
+          {chosen.length < bookedRows.length && (
+            <button type="button" data-testid="bulk-select-all" className="underline" onClick={() => setSelected(new Set(bookedRows.map((r) => r.id)))}>
+              Select all {bookedRows.length} booked matching the filters
+            </button>
+          )}
+          <span className="ml-auto flex gap-2">
+            <button type="button" data-testid="bulk-noshow" disabled={bulkBusy} className="rounded border bg-white px-3 py-1.5 disabled:opacity-50" onClick={() => runBulk('no-show')}>
+              Mark no-show
+            </button>
+            <button type="button" data-testid="bulk-cancel" disabled={bulkBusy} className="rounded border border-red-300 bg-white px-3 py-1.5 text-red-700 disabled:opacity-50" onClick={() => setConfirmBulk(true)}>
+              Cancel selected
+            </button>
+            <button type="button" data-testid="bulk-clear" disabled={bulkBusy} className="rounded border bg-white px-3 py-1.5 disabled:opacity-50" onClick={() => setSelected(new Set())}>
+              Clear selection
+            </button>
+          </span>
+        </div>
+      )}
+
+      {result && (
+        <div data-testid="bulk-result" role="status" className={`mb-3 rounded-lg border p-3 text-sm ${result.failed.length ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-green-200 bg-green-50 text-green-800'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div data-testid="bulk-result-summary" className="font-medium">
+                {result.kind === 'cancel' ? 'Cancelled' : 'Marked as no-show'} {result.done} of {result.done + result.failed.length} reservation{result.done + result.failed.length === 1 ? '' : 's'}.
+              </div>
+              {result.failed.length > 0 && (
+                <ul data-testid="bulk-result-failures" className="mt-1 list-disc pl-5">
+                  {result.failed.map((f) => <li key={f.id}>{f.id}: {f.message}</li>)}
+                </ul>
+              )}
+            </div>
+            <button type="button" data-testid="bulk-result-dismiss" className="rounded border px-2 py-1 text-xs" onClick={() => setResult(null)}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border bg-white">
         <table data-testid="reservations-table" className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
             <tr>
+              <th className="w-10 p-3">
+                <input ref={headerBox} type="checkbox" data-testid="select-page" aria-label="Select all booked reservations on this page" disabled={pageBooked.length === 0 || bulkBusy} checked={pageBooked.length > 0 && pageChosen.length === pageBooked.length} onChange={togglePage} />
+              </th>
               {COLUMNS.map((c) => (
                 <th key={c.key} className="p-3" aria-sort={sort.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                   <button type="button" data-testid={`sort-${c.key}`} className="font-semibold uppercase" onClick={() => toggleSort(c.key)}>
@@ -147,10 +244,13 @@ export default function Reservations() {
           </thead>
           <tbody>
             {visible.length === 0 && (
-              <tr><td colSpan={7} data-testid="reservations-empty" className="p-6 text-center text-slate-500">No reservations match the filters.</td></tr>
+              <tr><td colSpan={8} data-testid="reservations-empty" className="p-6 text-center text-slate-500">No reservations match the filters.</td></tr>
             )}
             {visible.map((r) => (
               <tr key={r.id} data-testid={`res-row-${r.id}`} data-status={r.status} className="border-t">
+                <td className="p-3">
+                  <input type="checkbox" data-testid={`res-select-${r.id}`} aria-label={`Select reservation ${r.id}`} disabled={r.status !== 'booked' || bulkBusy} checked={r.status === 'booked' && selected.has(r.id)} onChange={() => toggleOne(r.id)} />
+                </td>
                 <td data-testid={`res-date-${r.id}`} className="p-3">{r.date}</td>
                 <td data-testid={`res-court-${r.id}`} className="p-3">{courtName(r.courtId)}</td>
                 <td data-testid={`res-player-${r.id}`} className="p-3">{data.names[r.playerId] ?? r.playerId}</td>
@@ -184,6 +284,18 @@ export default function Reservations() {
           <button type="button" data-testid="page-next" disabled={current >= pages - 1} className="rounded border bg-white px-3 py-1.5 disabled:opacity-40" onClick={() => setPage(current + 1)}>Next</button>
         </div>
       </div>
+
+      {confirmBulk && (
+        <Modal title={`Cancel ${chosen.length} reservation${chosen.length === 1 ? '' : 's'}?`} testId="bulk-cancel-dialog" onClose={() => setConfirmBulk(false)}>
+          <p className="text-sm text-slate-600">The selected reservations will be cancelled and each player will be notified.</p>
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" data-testid="bulk-cancel-dismiss" className="rounded border px-4 py-2 text-sm" onClick={() => setConfirmBulk(false)}>Keep</button>
+            <button type="button" data-testid="bulk-cancel-confirm" className="rounded bg-red-600 px-4 py-2 text-sm text-white" onClick={() => runBulk('cancel')}>
+              Cancel {chosen.length}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {toCancel && (
         <Modal title="Cancel reservation?" testId="res-cancel-dialog" onClose={() => setToCancel(null)}>

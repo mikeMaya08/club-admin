@@ -9,7 +9,7 @@
     "preview": "vite preview --port 5102"
   },
   "dependencies": {
-    "club-store": "github:mikeMaya08/club-store#v0.5.0",
+    "club-store": "git+https://github.com/mikeMaya08/club-store.git#v0.5.0",
     "date-fns": "^3.6.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
